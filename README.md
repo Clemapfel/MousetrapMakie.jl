@@ -1,2 +1,1 @@
-# MousetrapMakie.jl
-Allows for integrating Makie.jl into Mousetrap.jl Applications
+This repo is under active development and should not be interacted with
