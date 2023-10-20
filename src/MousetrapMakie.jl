@@ -1,5 +1,5 @@
 """
-Minimum working example showing how to display a GLMakie plot using Mousetrap `GLArea`
+Adds `GLMakieArea`, a widget that allows to render a Makie plot to a Mousetrap widget. 
 """
 module MousetrapMakie
 
