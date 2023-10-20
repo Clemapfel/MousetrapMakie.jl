@@ -1,5 +1,14 @@
+name = "MousetrapMakie"
+uuid = "aebf437e-4a9b-4da2-be5f-abfe051cab05"
+authors = ["Clem Cords <mail@clemens-cords.com>"]
+version = "0.1.0"
+
 [deps]
+Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
+ModernGL = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
 Mousetrap = "5deeb4b9-6e04-4da7-8b7f-c77fb1eae65e"
-mousetrap_apple_jll = "7f2654e2-337a-59f5-9aed-6445982bfb16"
-mousetrap_linux_jll = "b6bb2801-a71f-530d-97b4-a6ed24b69d40"
-mousetrap_windows_jll = "1923bf96-b834-50bb-8499-88d15429481f"
+ShaderAbstractions = "65257c39-d410-5151-9873-9b3e5be5013e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+libmousetrap_jll = "287f9a42-973b-50d0-ae32-9952e735a47d"
