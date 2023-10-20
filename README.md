@@ -1,13 +1,13 @@
 # MousetrapMakie.jl
 
-Experimental package that adds `GLMakieArea`, a [Mousetrap](https://github.com/Clemapfel/Mousetrap.jl/) widget that allows displaying [GLMakie](https://github.com/MakieOrg/Makie.jl) plots, similar to how [`Gtk4Makie.jl`](https://github.com/JuliaGtk/Gtk4Makie.jl) allows the same for GTK4.jl.
+Experimental package that adds `GLMakieArea`, a [Mousetrap](https://github.com/Clemapfel/Mousetrap.jl/) widget that allows displaying [GLMakie](https://github.com/MakieOrg/Makie.jl) plots, similar to how [Gtk4Makie.jl](https://github.com/JuliaGtk/Gtk4Makie.jl) allows the same for GTK4.jl.
 
 This package is not production ready and should be considered in early alpha. The following features are still missing:
 
 + Applying a post-processing config is not yet implemented
 + Modifying the screen after it is realized remains untested
 + Setups with multiple `GLMakie.Screen`s remain untested
-+ `runtests.jl` is unimplemented
++ `runtests.jl` is unimplemented, meaning CI through GitHub actions is not yet set up
 + The Makie event model is ignored completely, only Mousetraps event controllers allow for user input
 
 If you are experienced with Makie, consider opening a PR to fully implement this package and extend its functionalities. Any significant contributor will be credited as an author. See [`src/MousetrapMakie.jl`](./src/MousetrapMakie.jl), which is heavily commented to make understanding and extending the package easier.
