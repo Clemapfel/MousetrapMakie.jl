@@ -33,6 +33,7 @@ main() do app::Application
     window = Window(app)
     canvas = GLMakieArea()
     set_child!(window, canvas)
+    set_size_request!(canvas, Vector2f(200, 200))
 
     screen = Ref{Union{Nothing, GLMakie.Screen{GLMakieArea}}}(nothing)
     connect_signal_realize!(canvas) do self
