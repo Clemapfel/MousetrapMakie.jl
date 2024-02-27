@@ -106,13 +106,13 @@ module MousetrapMakie
     GLMakie.framebuffer_size(self::GLMakieArea) = (self.framebuffer_size.x, self.framebuffer_size.y)
 
     # forward retina scale factor from GTK4 back-end
-    GLMakie.retina_scaling_factor(w::GLMakieArea) = Mousetrap.get_scale_factor(w)
+    GLMakie.scale_factor(w::GLMakieArea) = Mousetrap.get_scale_factor(w)
 
     # resolution of `GLMakieArea` widget itself`
     function GLMakie.window_size(w::GLMakieArea)
         size = get_natural_size(w)
-        size.x = size.x * GLMakie.retina_scaling_factor(w)
-        size.y = size.y * GLMakie.retina_scaling_factor(w)
+        size.x = size.x * get_scale_factor(w)
+        size.y = size.y * get_scale_factor(w)
         return (size.x, size.y)
     end
 
@@ -123,9 +123,10 @@ module MousetrapMakie
     end
 
     # resize request by makie will be ignored
-    function GLMakie.resize_native!(native::GLMakieArea, resolution...)
+    function GLMakie.resize!(scree::GLMakie.Screen{GLMakieArea}, ::Int, ::Int)
         # noop
     end
+
 
     # bind `GLMakieArea` OpenGL context
     ShaderAbstractions.native_switch_context!(a::GLMakieArea) = make_current(a.glarea)
@@ -186,7 +187,7 @@ module MousetrapMakie
             log_critical("MousetrapMakie", "In MousetrapMakie.create_glmakie_screen: GLMakieArea is not yet realized, it's internal OpenGL context cannot yet be accessed")
         end
 
-        config = Makie.merge_screen_config(GLMakie.ScreenConfig, screen_config)
+        config = Makie.merge_screen_config(GLMakie.ScreenConfig, Dict(screen_config))
 
         set_is_visible!(area, config.visible)
         set_expand!(area, true)
