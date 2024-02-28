@@ -11,4 +11,6 @@ ModernGL = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
 Mousetrap = "5deeb4b9-6e04-4da7-8b7f-c77fb1eae65e"
 ShaderAbstractions = "65257c39-d410-5151-9873-9b3e5be5013e"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-libmousetrap_jll = "287f9a42-973b-50d0-ae32-9952e735a47d"
+
+[compat]
+Mousetrap = "^0.3.0"
