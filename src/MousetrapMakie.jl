@@ -3,14 +3,13 @@ Adds `GLMakieArea`, a widget that allows to render a Makie plot to a Mousetrap w
 """
 module MousetrapMakie
 
-    export GLMakieArea, create_glmakie_screen
+    export GLMakieArea, create_glmakie_screen, GtkGLMakieFigure
 
     using Mousetrap
     using ModernGL, GLMakie, Colors, GeometryBasics, ShaderAbstractions
     using GLMakie: empty_postprocessor, fxaa_postprocessor, OIT_postprocessor, to_screen_postprocessor
     using GLMakie.GLAbstraction
     using GLMakie.Makie
-
     """
     ## GLMakieArea <: Widget
     `GLArea` wrapper that automatically connects all necessary callbacks in order for it to be used as a GLMakie render target. 
@@ -48,82 +47,73 @@ module MousetrapMakie
     ```
     """
     mutable struct GLMakieArea <: Widget
-
         glarea::GLArea              # wrapped native widget
         framebuffer_id::Ref{Int}    # set by render callback, used in MousetrapMakie.create_glmakie_screen
         framebuffer_size::Vector2i  # set by resize callback, used in GLMakie.framebuffer_size
+        scene::Scene
+        screen::GLMakie.Screen{GLMakieArea}
 
         function GLMakieArea()
+            gma = new()
+            gma.framebuffer_id = Ref{Int}(0)
+            gma.framebuffer_size = Vector2i(0, 0)
+            
             glarea = GLArea()
             set_auto_render!(glarea, false) # should `render` be emitted everytime the widget is drawn
-            connect_signal_render!(on_makie_area_render, glarea)
-            connect_signal_resize!(on_makie_area_resize, glarea)
-            return new(glarea, Ref{Int}(0), Vector2i(0, 0))
+                  
+            connect_signal_render!(
+				function signal_render(self, ctx)
+					screen = gma.screen
+					if !isopen(screen) return false end
+					screen.render_tick[] = Makie.BackendTick
+					screen.glscreen.framebuffer_id[] = glGetIntegerv(GL_FRAMEBUFFER_BINDING)
+					GLMakie.render_frame(screen) 
+					return true
+				end, glarea)
+
+            connect_signal_resize!(
+                function on_makie_area_resize(self, w, h)
+                    events = gma.scene.events
+                    screen = gma.screen
+
+                    scale = screen.scalefactor[] / Mousetrap.get_scale_factor(gma)
+                    w, h = round.(Int, (w, h) ./ scale )
+
+                    gma.framebuffer_size.x = w
+                    gma.framebuffer_size.y = h
+                    ShaderAbstractions.switch_context!(gma)
+    
+                    events.window_area[] = Recti(minimum(events.window_area[]), w, h)
+                    events.window_dpi[] = Mousetrap.calculate_monitor_dpi(gma)
+            
+                    queue_render(self) 
+                    return nothing
+                end, glarea)
+
+            gma.glarea = glarea
+
+            return gma
         end
     end
+
     Mousetrap.get_top_level_widget(x::GLMakieArea) = x.glarea
-
-    # maps hash(GLMakieArea) to GLMakie.Screen
-    const screens = Dict{UInt64, GLMakie.Screen}()
-
-    # maps hash(GLMakieArea) to Scene, used in `on_makie_area_resize`
-    const scenes = Dict{UInt64, GLMakie.Scene}()
-
-    # render callback: if screen is open, render frame to `GLMakieArea`s OpenGL context
-    function on_makie_area_render(self, context)
-        key = Base.hash(self)
-        if haskey(screens, key)
-            screen = screens[key]
-            if !isopen(screen) return false end
-            screen.render_tick[] = nothing
-            glarea = screen.glscreen
-            glarea.framebuffer_id[] = glGetIntegerv(GL_FRAMEBUFFER_BINDING)
-            GLMakie.render_frame(screen) 
-        end
-        return true
-    end
-
-    # resize callback: update framebuffer size, necessary for `GLMakie.framebuffer_size`
-    function on_makie_area_resize(self, w, h)
-        key = Base.hash(self)
-        if haskey(screens, key)
-            screen = screens[key]
-            glarea = screen.glscreen
-            glarea.framebuffer_size.x = w
-            glarea.framebuffer_size.y = h
-            queue_render(glarea.glarea)
-        end
-
-        if haskey(scenes, key)
-            scene = scenes[key]
-            scene.events.window_area[] = Recti(0, 0, glarea.framebuffer_size.x, glarea.framebuffer_size.y)
-            scene.events.window_dpi[] = Mousetrap.calculate_monitor_dpi(glarea)
-        end
-        return nothing
-    end
 
     # resolution of `GLMakieArea` OpenGL framebuffer
     GLMakie.framebuffer_size(self::GLMakieArea) = (self.framebuffer_size.x, self.framebuffer_size.y)
 
-    # forward retina scale factor from GTK4 back-end
-    GLMakie.retina_scaling_factor(w::GLMakieArea) = Mousetrap.get_scale_factor(w)
-
     # resolution of `GLMakieArea` widget itself`
     function GLMakie.window_size(w::GLMakieArea)
         size = get_natural_size(w)
-        size.x = size.x * GLMakie.retina_scaling_factor(w)
-        size.y = size.y * GLMakie.retina_scaling_factor(w)
+        size.x = size.x * Mousetrap.get_scale_factor(w)
+        size.y = size.y * Mousetrap.get_scale_factor(w)
         return (size.x, size.y)
     end
 
     # calculate screen size and dpi
-    function Makie.window_area(scene::Scene, screen::GLMakie.Screen{GLMakieArea})
-        glarea = screen.glscreen
-        scenes[hash(glarea)] = scene
-    end
+    Makie.window_area(scene::Scene, screen::GLMakie.Screen{GLMakieArea}) = screen.glscreen.scene = scene
 
     # resize request by makie will be ignored
-    function GLMakie.resize_native!(native::GLMakieArea, resolution...)
+    function GLMakie.resize!(screen::GLMakie.Screen{GLMakieArea}, w::Int, h::Int)
         # noop
     end
 
@@ -164,7 +154,10 @@ module MousetrapMakie
     # ignore makie event model, use the mousetrap event controllers instead
     Makie.window_open(::Scene, ::GLMakieArea) = nothing
     Makie.disconnect!(::GLMakieArea, f) = nothing
-    GLMakie.pollevents(::GLMakie.Screen{GLMakieArea}) = nothing
+	function GLMakie.pollevents(screen::GLMakie.Screen{GLMakieArea}, frame_state::Makie.TickState)
+		screen.render_tick[] = frame_state
+		return
+	end
     Makie.mouse_buttons(::Scene, ::GLMakieArea) = nothing
     Makie.keyboard_buttons(::Scene, ::GLMakieArea) = nothing
     Makie.dropped_files(::Scene, ::GLMakieArea) = nothing
@@ -173,6 +166,21 @@ module MousetrapMakie
     Makie.scroll(::Scene, ::GLMakieArea) = nothing
     Makie.hasfocus(::Scene, ::GLMakieArea) = nothing
     Makie.entered_window(::Scene, ::GLMakieArea) = nothing
+	
+	"""
+		Wrap a figure in an area to display to a GLMakieArea and screen
+	"""
+	function GtkGLMakieFigure(fig::Figure) 
+		canvas = GLMakieArea()
+    
+		connect_signal_realize!(canvas) do self
+			screen = create_glmakie_screen(canvas)
+			display(screen, fig)
+			return nothing
+		end
+
+		canvas
+	end
 
     """
     ```
@@ -186,8 +194,8 @@ module MousetrapMakie
             log_critical("MousetrapMakie", "In MousetrapMakie.create_glmakie_screen: GLMakieArea is not yet realized, it's internal OpenGL context cannot yet be accessed")
         end
 
-        config = Makie.merge_screen_config(GLMakie.ScreenConfig, screen_config)
-
+        config = Makie.merge_screen_config(GLMakie.ScreenConfig, Dict{Symbol, Any}(screen_config))
+        
         set_is_visible!(area, config.visible)
         set_expand!(area, true)
 
@@ -204,7 +212,7 @@ module MousetrapMakie
         ]
 
         screen = GLMakie.Screen(
-            area, shader_cache, fb,
+            area, false, shader_cache, fb,
             config, false,
             nothing,
             Dict{WeakRef, GLMakie.ScreenID}(),
@@ -217,19 +225,13 @@ module MousetrapMakie
         )
         # end quote
 
-        hash = Base.hash(area.glarea)
-        screens[hash] = screen
+        screen.scalefactor[] = !isnothing(config.scalefactor) ? config.scalefactor : Mousetrap.get_scale_factor(area)
+        screen.px_per_unit[] = !isnothing(config.px_per_unit) ? config.px_per_unit : screen.scalefactor[]
+        area.screen = screen
         
-        set_tick_callback!(area.glarea) do clock::FrameClock
-            if GLMakie.requires_update(screen)
-                queue_render(area.glarea)
-            end
-
-            if GLMakie.was_destroyed(area)
-                return TICK_CALLBACK_RESULT_DISCONTINUE
-            else
-                return TICK_CALLBACK_RESULT_CONTINUE
-            end
+        set_tick_callback!(area) do clock::FrameClock
+            GLMakie.requires_update(area.screen) && queue_render(area.glarea)
+            GLMakie.was_destroyed(area) ? TICK_CALLBACK_RESULT_DISCONTINUE : TICK_CALLBACK_RESULT_CONTINUE
         end
         return screen
     end
